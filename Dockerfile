@@ -16,13 +16,9 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 # Set working directory
 WORKDIR /app
 
-# Copy all package files first
+# Copy package files and install ALL dependencies
 COPY package*.json ./
-COPY server/package*.json ./server/
-
-# Install everything
 RUN npm install
-RUN cd server && npm install
 
 # Copy the rest of the application
 COPY . .
@@ -33,7 +29,6 @@ RUN npm run build
 # Expose the port
 EXPOSE 3001
 
-# Start from the server directory to avoid path issues
-WORKDIR /app/server
-CMD ["node", "index.js"]
+# Start the application
+CMD ["node", "server/index.js"]
 
