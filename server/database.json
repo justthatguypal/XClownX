@@ -1,0 +1,24 @@
+{
+  "users": [
+    {
+      "id": "1777949590601",
+      "username": "ItsOceanYT",
+      "password": "$2b$10$S9x2BOTsdZPK5o0m3WRHheLbJeofrIVj7q1GzHONFrHjbWbYHt3lG",
+      "isVerified": false,
+      "playlists": []
+    },
+    {
+      "id": "1777949743466",
+      "username": "KillerCLown",
+      "password": "$2b$10$0jRO.zNkMaq4WY2lldkkU.PYTe30x0bPdIGlql9CpbykwtY3XeceO",
+      "isVerified": false,
+      "playlists": [
+        {
+          "id": "1777950469687",
+          "name": "King VON",
+          "tracks": []
+        }
+      ]
+    }
+  ]
+}
