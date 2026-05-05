@@ -20,6 +20,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Copy the server package files and install
+COPY server/package*.json ./server/
+RUN cd server && npm install
+
 # Copy the rest of the application
 COPY . .
 
@@ -29,6 +33,6 @@ RUN npm run build
 # Expose the port
 EXPOSE 3001
 
-# Start the application directly from the root
-CMD ["node", "index.js"]
+# Start the application from the server directory
+CMD ["node", "server/index.js"]
 

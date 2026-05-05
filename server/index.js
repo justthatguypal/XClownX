@@ -18,7 +18,7 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const DB_FILE = path.join(__dirname, 'database.json');
+const DB_FILE = path.join(__dirname, '../database.json');
 const JWT_SECRET = 'xclown-super-secret-key';
 
 // Initialize DB
@@ -253,11 +253,11 @@ app.get('/api/audio/:id', (req, res) => {
 });
 
 // Serve Frontend (after build)
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // Catch-all to serve frontend
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/index.html'));
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {

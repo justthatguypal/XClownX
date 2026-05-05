@@ -48,5 +48,19 @@ export const authService = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     return data;
+  },
+
+  async updatePlaylist(token, playlistId, tracks) {
+    const res = await fetch(`${BASE_URL}/playlists/${playlistId}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ tracks })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    return data;
   }
 };

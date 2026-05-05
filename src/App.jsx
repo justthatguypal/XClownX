@@ -198,6 +198,56 @@ const MessagesPanel = ({ onClose, artist }) => {
   );
 };
 
+const PlaylistView = ({ playlist, onBack, onPlay, onRemoveFromPlaylist }) => {
+  return (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+      <button onClick={onBack} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        &larr; Back to Library
+      </button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '3rem' }}>
+        <div style={{ width: '150px', height: '150px', borderRadius: '24px', background: 'var(--glass-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Music size={60} opacity={0.5} />
+        </div>
+        <div>
+          <h1 style={{ fontSize: '2.5rem', margin: 0 }}>{playlist.name}</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>{playlist.tracks.length} tracks</p>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <button className="btn-primary" onClick={() => onPlay(playlist.tracks[0])} disabled={playlist.tracks.length === 0}>
+              Play All
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {playlist.tracks.length === 0 ? (
+        <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted)' }}>This playlist is empty. Search for songs to add them!</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {playlist.tracks.map((track, i) => (
+            <div key={`${track.id}-${i}`} className="glass-card playlist-track-item" style={{ padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer' }} onClick={() => onPlay(track)}>
+              <span style={{ width: '20px', color: 'var(--text-muted)' }}>{i + 1}</span>
+              <img src={track.thumbnail} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} alt="" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{track.title}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{track.uploaderName}</div>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onRemoveFromPlaylist(track); }}
+                style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const ArtistProfile = ({ artist, onBack, onPlay, onAddToLibrary, user, onSubscribe, onMessage }) => {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -422,6 +472,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [showMessages, setShowMessages] = useState(false);
 
   
@@ -517,15 +568,61 @@ export default function App() {
     setLocalTracks([...localTracks, ...newTracks]);
   };
 
-  const addToLibrary = (track) => {
-    // Don't add duplicates
-    if (localTracks.find(t => t.id === track.id)) return;
-    const libTrack = {
-      ...track,
-      isLibrary: true,
-      thumbnail: track.thumbnail || `https://i.ytimg.com/vi/${track.id}/hqdefault.jpg`
-    };
-    setLocalTracks(prev => [...prev, libTrack]);
+  const addToLibrary = async (track) => {
+    if (!user) {
+      // Just add to local "Saved Tracks" if not logged in
+      if (localTracks.find(t => t.id === track.id)) return;
+      const libTrack = {
+        ...track,
+        isLibrary: true,
+        thumbnail: track.thumbnail || `https://i.ytimg.com/vi/${track.id}/hqdefault.jpg`
+      };
+      setLocalTracks(prev => [...prev, libTrack]);
+      return;
+    }
+
+    // If logged in, ask where to add
+    const addToLib = window.confirm("Add to Saved Tracks? (Cancel to add to a specific Playlist)");
+    if (addToLib) {
+      if (localTracks.find(t => t.id === track.id)) return;
+      const libTrack = {
+        ...track,
+        isLibrary: true,
+        thumbnail: track.thumbnail || `https://i.ytimg.com/vi/${track.id}/hqdefault.jpg`
+      };
+      setLocalTracks(prev => [...prev, libTrack]);
+    } else {
+      const playlistNames = user.playlists?.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
+      if (!playlistNames) return alert("You don't have any playlists yet! Create one in the Library tab.");
+      
+      const choice = window.prompt(`Enter playlist number (1-${user.playlists.length}):\n\n${playlistNames}`);
+      const index = parseInt(choice) - 1;
+      
+      if (user.playlists[index]) {
+        const playlist = user.playlists[index];
+        const newTracks = [...(playlist.tracks || []), { ...track, thumbnail: track.thumbnail || `https://i.ytimg.com/vi/${track.id}/hqdefault.jpg` }];
+        try {
+          const updated = await authService.updatePlaylist(token, playlist.id, newTracks);
+          setUser({
+            ...user,
+            playlists: user.playlists.map(p => p.id === playlist.id ? updated : p)
+          });
+          alert(`Added to ${playlist.name}!`);
+        } catch(e) { alert(e.message); }
+      }
+    }
+  };
+
+  const removeFromPlaylist = async (playlist, trackToRemove) => {
+    const newTracks = playlist.tracks.filter(t => t.id !== trackToRemove.id);
+    try {
+      const updated = await authService.updatePlaylist(token, playlist.id, newTracks);
+      setUser({
+        ...user,
+        playlists: user.playlists.map(p => p.id === playlist.id ? updated : p)
+      });
+      setSelectedPlaylist(updated);
+    } catch(e) { alert(e.message); }
   };
 
   const playTrack = async (track) => {
@@ -611,8 +708,18 @@ export default function App() {
               }}
             />
           )} 
+
+          {selectedPlaylist && !selectedArtist && !showMessages && (
+            <PlaylistView 
+              key="playlist-view"
+              playlist={selectedPlaylist}
+              onBack={() => setSelectedPlaylist(null)}
+              onPlay={playTrack}
+              onRemoveFromPlaylist={(track) => removeFromPlaylist(selectedPlaylist, track)}
+            />
+          )}
           
-          {activeTab === 'home' && !selectedArtist && !showMessages && (
+          {activeTab === 'home' && !selectedArtist && !selectedPlaylist && !showMessages && (
             <motion.div
               key="home"
               initial={{ opacity: 0, y: 20 }}
@@ -657,7 +764,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'artists' && !selectedArtist && !showMessages && (
+          {activeTab === 'artists' && !selectedArtist && !selectedPlaylist && !showMessages && (
             <motion.div
               key="artists"
               initial={{ opacity: 0, y: 20 }}
@@ -707,7 +814,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'library' && !selectedArtist && !showMessages && (
+          {activeTab === 'library' && !selectedArtist && !selectedPlaylist && !showMessages && (
             <motion.div
               key="library"
               initial={{ opacity: 0, y: 20 }}
@@ -743,12 +850,12 @@ export default function App() {
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
                       {user.playlists.map(p => (
-                        <div key={p.id} className="glass-card" style={{ padding: '1.5rem', cursor: 'pointer' }} onClick={() => alert('Playlist viewer coming soon!')}>
+                        <div key={p.id} className="glass-card" style={{ padding: '1.5rem', cursor: 'pointer' }} onClick={() => setSelectedPlaylist(p)}>
                           <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--glass-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
                             <Music size={40} opacity={0.5} />
                           </div>
                           <div style={{ fontWeight: 'bold' }}>{p.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.tracks.length} tracks</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.tracks?.length || 0} tracks</div>
                         </div>
                       ))}
                     </div>
@@ -779,7 +886,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'mods' && !selectedArtist && !showMessages && (
+          {activeTab === 'mods' && !selectedArtist && !selectedPlaylist && !showMessages && (
             <motion.div
               key="mods"
               initial={{ opacity: 0, y: 20 }}
@@ -845,7 +952,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'settings' && !selectedArtist && !showMessages && (
+          {activeTab === 'settings' && !selectedArtist && !selectedPlaylist && !showMessages && (
             <motion.div
               key="settings"
               initial={{ opacity: 0, y: 20 }}
