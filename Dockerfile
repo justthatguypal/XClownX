@@ -20,6 +20,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Install server dependencies
+COPY server/package*.json ./server/
+RUN cd server && npm install
+
 # Copy the rest of the application
 COPY . .
 
